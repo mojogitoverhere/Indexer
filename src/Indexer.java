@@ -2,6 +2,8 @@
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -45,6 +47,12 @@ public class Indexer {
 		// Create an index at indexDir using files from dataDir
 		Indexer indexer = new Indexer(indexDir);
 		indexer.addFilesFromDirectory(dataDir);
+		try {
+			indexer.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		System.out.println("Done!");
 	}
@@ -101,14 +109,21 @@ public class Indexer {
 		
 	}
 	
-	Document getDocument(File f) throws FileNotFoundException
+	Document getDocument(File f) throws IOException
 	{
+		String title, body;
+		//Parse the html file
+		
+		
 		//Construct the Document
 		Document doc = new Document();
 		doc.add(new TextField("contents", new FileReader(f)));
-		//TODO: ADD MORE FIELDS
+		doc.add(new StringField("fullpath", f.getCanonicalPath(), Field.Store.YES)); //throws IOException
 		return doc;
 	}
 	
-	
+	void close() throws IOException
+	{
+		writer.close();
+	}
 }
