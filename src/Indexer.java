@@ -3,6 +3,7 @@
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
@@ -17,6 +18,10 @@ import java.io.IOException;
 import java.nio.file.Paths;
 
 import org.apache.lucene.util.Version;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
+import org.jsoup.select.Elements;
 
 
 public class Indexer {
@@ -111,13 +116,41 @@ public class Indexer {
 	
 	Document getDocument(File f) throws IOException
 	{
-		String title, body;
+		String title = "";
+		String body = "";
+		String url = "";
+		
 		//Parse the html file
+		org.jsoup.nodes.Document jdoc = Jsoup.parse(f, "UTF-8", "");
 		
+		//Extract title
+		Elements metaOgTitle = jdoc.select("meta[property=og:title]");
+		if(metaOgTitle.hasAttr("content"))
+		{
+			title = metaOgTitle.attr("content");
+		}
 		
-		//Construct the Document
+		//Extract url
+		Elements urlElements = jdoc.getElementsByTag("url");
+		url = urlElements.first().text(); //there is only one url tag
+		
+		//Extract body content
+		// --Remove all script tags
+		Elements scriptElements = jdoc.select("script");
+		for(Element script : scriptElements)
+			script.remove();
+		
+		// --Remove all style tags
+		Elements styleElements = jdoc.select("style");
+		for(Element style : styleElements)
+			style.remove();
+		body = jdoc.text();
+		
+		//Construct the Lucene Document
 		Document doc = new Document();
-		doc.add(new TextField("contents", new FileReader(f)));
+		doc.add(new TextField("title", title, Field.Store.YES));
+		doc.add(new TextField("body", body, Field.Store.YES));
+		doc.add(new StringField("url", url, Field.Store.YES));
 		doc.add(new StringField("fullpath", f.getCanonicalPath(), Field.Store.YES)); //throws IOException
 		return doc;
 	}
