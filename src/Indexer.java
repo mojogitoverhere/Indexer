@@ -6,15 +6,18 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
+import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Paths;
 
 import org.apache.lucene.util.Version;
@@ -106,6 +109,7 @@ public class Indexer {
 	void indexFile(File file)
 	{
 		try {
+			//Create a Document object and add it to the index
 			Document doc = getDocument(file);
 			writer.addDocument(doc);
 		} catch (Exception e) {
@@ -123,33 +127,48 @@ public class Indexer {
 		//Parse the html file
 		org.jsoup.nodes.Document jdoc = Jsoup.parse(f, "UTF-8", "");
 		
-		//Extract title
-		Elements metaOgTitle = jdoc.select("meta[property=og:title]");
-		if(metaOgTitle.hasAttr("content"))
-		{
-			title = metaOgTitle.attr("content");
-		}
+		//Extract and delete title
+		Elements titleElement = jdoc.getElementsByTag("title");
+		title = titleElement.text();
+		titleElement.remove();
 		
-		//Extract url
+		//Extract and delete url
 		Elements urlElements = jdoc.getElementsByTag("url");
 		url = urlElements.first().text(); //there is only one url tag
+		urlElements.remove();
 		
 		//Extract body content
 		// --Remove all script tags
 		Elements scriptElements = jdoc.select("script");
-		for(Element script : scriptElements)
-			script.remove();
+		scriptElements.remove();
 		
 		// --Remove all style tags
 		Elements styleElements = jdoc.select("style");
-		for(Element style : styleElements)
-			style.remove();
+		styleElements.remove();
+		
+		// --Remove header tag
+		Elements headerElements = jdoc.select("header");
+		headerElements.remove();
+		
+		// --Remove footer tag
+		Elements footerElements = jdoc.select("footer");
+		footerElements.remove();
+		
 		body = jdoc.text();
 		
 		//Construct the Lucene Document
 		Document doc = new Document();
+		
+		FieldType fieldType = new FieldType();
+		fieldType.setTokenized(true);
+		fieldType.setStored(true);
+		fieldType.setStoreTermVectors(true);
+		fieldType.setStoreTermVectorOffsets(true);
+		fieldType.setStoreTermVectorPositions(true);
+		fieldType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS);
+		
 		doc.add(new TextField("title", title, Field.Store.YES));
-		doc.add(new TextField("body", body, Field.Store.YES));
+		doc.add(new Field("body", body, fieldType));
 		doc.add(new StringField("url", url, Field.Store.YES));
 		doc.add(new StringField("fullpath", f.getCanonicalPath(), Field.Store.YES)); //throws IOException
 		return doc;
